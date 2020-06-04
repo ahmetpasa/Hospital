@@ -1,7 +1,7 @@
 import mysql.connector
 import hashlib
 from flask import Flask, render_template, url_for, flash, redirect, request
-from form import LoginForm, RoomForm, MeetingForm, MeetingUpdateForm, MeetingDeleteForm
+from form import LoginForm, RoomForm, MeetingForm, MeetingUpdateForm, MeetingDeleteForm, AddDiagnosis
 
 #mysql connection
 #!!!parameters must be changed according to the server !!!
@@ -43,10 +43,29 @@ def login():
             flash('There is something wrong, I can feel it', 'danger')
     return render_template('login.html', title='Login', form=form)
 
-@app.route("/doctor")
+@app.route("/doctor", methods=['GET', 'POST'])
 def doctor():
     username = request.args.get('username', default = "*", type = str)
-    return render_template('doctor.html',username=username)
+    #Adding diagnosis
+    form_diags = AddDiagnosis()
+    fetch_diags = "SELECT Diagnosis_ID, Result FROM Diagnosis"
+    mycursor.execute(fetch_diags)
+    for x in mycursor:
+        ind_diag = (str(x[0]), x[1])
+        form_diags.diag.choices.append(ind_diag)
+    fetch_pats = "select patient.Patient_ID, patient.Patient_Name from patient, doctor where patient.Doctor_ID = doctor.Doctor_ID and doctor.Doctor_Name = %(x)s"
+    mycursor.execute(fetch_pats, {'x': username})
+    for x in mycursor:
+        ind_pat = (str(x[0]), x[1])
+        form_diags.to_patient.choices.append(ind_pat)
+    if form_diags.validate_on_submit():
+        insert_stmt = "INSERT INTO Has(Diagnosis_ID, Patient_ID) VALUES(%(x)s, %(y)s)"
+        mycursor.execute(insert_stmt,
+                         {'x': form_diags.diag.data, 'y': form_diags.to_patient.data})
+        mydb.commit()  # commit the changes
+        print("Rows affected:", mycursor.rowcount)
+        print("Statement:", mycursor.rowcount)
+    return render_template('doctor.html',username=username, form_diags=form_diags)
 
 @app.route("/nurse", methods=['GET', 'POST'])
 def nurse():
