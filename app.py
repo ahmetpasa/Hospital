@@ -1,7 +1,7 @@
 import mysql.connector
 import hashlib
 from flask import Flask, render_template, url_for, flash, redirect, request
-from form import LoginForm, RoomForm
+from form import LoginForm, RoomForm, MeetingForm, MeetingUpdateForm, MeetingDeleteForm
 
 #mysql connection
 #!!!parameters must be changed according to the server !!!
