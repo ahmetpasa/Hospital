@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, BooleanField, IntegerField, DateField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, IntegerField, DateField, SelectField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 from datetime import date
 
@@ -28,3 +28,8 @@ class MeetingUpdateForm(FlaskForm):
 class MeetingDeleteForm(FlaskForm):
     recordIDdel = IntegerField('Record ID',validators=[DataRequired()])
     dele = SubmitField('Delete')
+    
+class AddDiagnosis(FlaskForm):
+    diag = SelectField("Choose Diagnosis", validators=[DataRequired()], choices=[])
+    to_patient = SelectField("To Which Patient", validators=[DataRequired()], choices=[])
+    upd_2 = SubmitField('Update')
