@@ -139,10 +139,128 @@ def nurse():
     print(len(rooms))
     return render_template('nurse.html',profile=profile,rooms=rooms,username=username,form=form,patients=patients)
 
-@app.route("/patient")
+@app.route("/patient", methods=['GET', 'POST'])
 def patient():
-    username = request.args.get('username', default = "*", type = str)
-    return render_template('patient.html',username=username)
+    username = request.args.get('username', default="*", type=str)
+    #Patient's profile
+    select_stmt_p1 = "SELECT Patient_ID, Patient_Name, Phone_No, Gender, Address, Age FROM Patient WHERE Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p1, {'x': username})
+    profile = {}
+    for x in mycursor:
+        # print(x)
+        profile['Patient_ID'] = str(x[0])
+        profile['Patient_Name'] = x[1]
+        profile['Phone_No'] = x[2]
+        profile['Gender'] = 'Male' if x[3] == 1 else 'Female'
+        profile['Address'] = x[4]
+    # Adding meeting
+    select_stmt_m1 = "SELECT count(*) from Meeting"
+    mycursor.execute(select_stmt_m1)
+    for x in mycursor:
+        newMeetingID = x[0] + 1
+    select_stmt_m2 = "SELECT Patient_ID from Patient WHERE Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_m2, {'x': username})
+    for x in mycursor:
+        PatientId = x[0]
+    select_stmt_m3 = "SELECT count(Record_No) from Meeting WHERE Patient_ID = %(x)s"
+    mycursor.execute(select_stmt_m3, {'x': PatientId})
+    for x in mycursor:
+        newRecordNo = x[0] + 1
+    form = MeetingForm()
+    if form.validate_on_submit():
+        insert_stmt = "INSERT INTO Meeting(Meeting_ID, Patient_ID, Record_No, DescriptionColumn, Appointment) VALUES(%(x)s, %(y)s, %(z)s, %(a)s, %(b)s)"
+        mycursor.execute(insert_stmt,
+                            {'x': newMeetingID, 'y': PatientId, 'z': newRecordNo, 'a': form.description.data,
+                              'b': form.appointment.data})
+        mydb.commit()  # commit the changes
+        print("Rows affected:", mycursor.rowcount)
+        print("Statement:", mycursor.rowcount)
+    #Updating and deleting the meeting
+    form2 = MeetingUpdateForm()
+    if form2.validate_on_submit():
+        update_stmt = "UPDATE Meeting SET Appointment = %(x)s WHERE Patient_ID = %(y)s AND Record_No = %(z)s"
+        mycursor.execute(update_stmt,
+                         {'x': form2.appointmentupd.data, 'y': PatientId, 'z': form2.recordID.data})
+        mydb.commit()  # commit the changes
+        print("Rows affected:", mycursor.rowcount)
+        print("Statement:", mycursor.rowcount)
+    form3 = MeetingDeleteForm()
+    if form3.validate_on_submit():
+        delete_stmt = "DELETE FROM Meeting WHERE Patient_ID = %(x)s AND Record_No = %(y)s"
+        mycursor.execute(delete_stmt,
+                         {'x': PatientId, 'y': form3.recordIDdel.data})
+        mydb.commit()  # commit the changes
+        print("Rows affected:", mycursor.rowcount)
+        print("Statement:", mycursor.rowcount)
+    # Patient's doctor's profile
+    select_stmt_p2 = "SELECT Doctor_Name, Speciality, d.Phone_No, d.Gender, d.Address FROM Doctor as d, Patient as p WHERE d.Doctor_ID = p.Doctor_ID AND p.Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p2, {'x': username})
+    doctorprofile = {}
+    for x in mycursor:
+        # print(x)
+        doctorprofile['Doctor_Name'] = x[0]
+        doctorprofile['Speciality'] = x[1]
+        doctorprofile['Phone_No'] = x[2]
+        doctorprofile['Gender'] = 'Male' if x[3] == 1 else 'Female'
+        doctorprofile['Address'] = x[4]
+    # Patient's previous meetings
+    select_stmt_p3 = "SELECT Record_No, DescriptionColumn, Appointment FROM Meeting, Patient WHERE Meeting.Patient_ID = Patient.Patient_ID AND Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p3, {'x': username})
+    meetings = []
+    for x in mycursor:
+        # print(x)
+        meeting = {}
+        meeting['Record_No'] = str(x[0])
+        meeting['DescriptionColumn'] = x[1]
+        meeting['Appointment'] = str(x[2])
+        meetings.append(meeting)
+    # Patient's previous medicines
+    select_stmt_p4 = "SELECT m.MedicineName, m.Quantity, m.Price FROM Medicine as m,Given as g, Patient WHERE g.Patient_ID = Patient.Patient_ID AND g.Medicine_ID = m.Medicine_ID AND Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p4, {'x': username})
+    medicines = []
+    for x in mycursor:
+        # print(x)
+        medicine = {}
+        medicine['MedicineName'] = x[0]
+        medicine['Quantity'] = str(x[1])
+        medicine['Price'] = str(x[2])
+        medicines.append(medicine)
+    # Patient's previous records
+    select_stmt_p5 = "SELECT Record_ID, Date_Admitted, Date_Discharged FROM Record, Patient WHERE Record.Patient_ID = Patient.Patient_ID AND Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p5, {'x': username})
+    records = []
+    for x in mycursor:
+        # print(x)
+        record = {}
+        record['Record_ID'] = str(x[0])
+        record['Date_Admitted'] = str(x[1])
+        record['Date_Discharged'] = str(x[2])
+        records.append(record)
+    # Patient's previous diagnoses
+    select_stmt_p6 = "SELECT d.Diagnosis_ID, d.Result FROM Diagnosis as d, Has, Patient WHERE Has.Diagnosis_ID = d.Diagnosis_ID AND Patient.Patient_ID = Has.Patient_ID AND Patient_Name = %(x)s"
+    mycursor.execute(select_stmt_p6, {'x': username})
+    diagnoses = []
+    for x in mycursor:
+        # print(x)
+        diagnosis = {}
+        diagnosis['Diagnosis_ID'] = str(x[0])
+        diagnosis['Result'] = x[1]
+        diagnoses.append(diagnosis)
+    #Patient's room(if there is)
+    select_stmt_p7 = "SELECT Room_ID, RoomType, Nurse_Name, Phone_No FROM room, nurse where nurse.Nurse_ID = room.Nurse_ID and Patient_ID = %(x)s;"
+    mycursor.execute(select_stmt_p7, {'x': PatientId})
+    roominfo = []
+    for x in mycursor:
+        # print(x)
+        room = {}
+        room['Room_ID'] = str(x[0])
+        room['RoomType'] = x[1]
+        room['Nurse_Name'] = x[2]
+        room['Phone_No'] = x[3]
+        roominfo.append(room)
+
+    return render_template('patient.html', username=username, profile=profile, doctorprofile=doctorprofile, meetings=meetings, medicines=medicines, records=records, diagnoses=diagnoses, form=form, form2=form2, form3=form3, roominfo=roominfo)
+
 
 
 if __name__ == '__main__':
