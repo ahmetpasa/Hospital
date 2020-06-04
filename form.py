@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, BooleanField, IntegerField
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, IntegerField, DateField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
+from datetime import date
 
 
 class LoginForm(FlaskForm):
@@ -13,3 +14,17 @@ class RoomForm(FlaskForm):
     patient = StringField('Patient',validators=[DataRequired()])
     nurse = StringField('Nurse',validators=[DataRequired()])
     update = SubmitField('Update')
+    
+class MeetingForm(FlaskForm):
+    description = StringField('Description',validators=[DataRequired()])
+    appointment = DateField('Date', format='%Y-%m-%d', validators=[DataRequired()], default=date.today)
+    add = SubmitField('Add')
+    
+class MeetingUpdateForm(FlaskForm):
+    recordID = IntegerField('Record ID',validators=[DataRequired()])
+    appointmentupd = DateField('Date', format='%Y-%m-%d', validators=[DataRequired()], default=date.today)
+    upd = SubmitField('Update')
+    
+class MeetingDeleteForm(FlaskForm):
+    recordIDdel = IntegerField('Record ID',validators=[DataRequired()])
+    dele = SubmitField('Delete')
