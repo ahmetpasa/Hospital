@@ -1,18 +1,20 @@
 import mysql.connector
 import hashlib
 from flask import Flask, render_template, url_for, flash, redirect, request
-from form import LoginForm, RoomForm, MeetingForm, MeetingUpdateForm, MeetingDeleteForm, AddDiagnosis
+
+from form import LoginForm, RoomForm, MeetingForm, MeetingUpdateForm,  MeetingDeleteForm, GiveMedicine,\
+    AddDiagnosis, D_MeetingForm
 
 #mysql connection
 #!!!parameters must be changed according to the server !!!
 mydb = mysql.connector.connect(user='root',
                               host='127.0.0.1',
-                              password='123',
+                              password='semetey21',
                               auth_plugin='mysql_native_password',
-                              database = 'hospital'
+                              database = 'hospital2'
                               )
 
-mycursor = mydb.cursor(buffered=True)
+mycursor = mydb.cursor()
 
 app = Flask(__name__)
 
@@ -39,14 +41,45 @@ def login():
             if x[1] == 'patient':
                 username = "?username="+str(x[0])
                 return redirect(url_for('patient') + username)
+
+
         if flag == False:
             flash('There is something wrong, I can feel it', 'danger')
     return render_template('login.html', title='Login', form=form)
 
 @app.route("/doctor", methods=['GET', 'POST'])
 def doctor():
-    username = request.args.get('username', default = "*", type = str)
-    #Adding diagnosis
+    username = request.args.get('username', default="*", type=str)
+
+    ##Fetching the Doctor profile
+    select_stmt1 = "SELECT * FROM Doctor WHERE Doctor_Name = %(x)s"
+    mycursor.execute(select_stmt1, {'x': username})
+    profile = {}
+    for x in mycursor:
+        # print(x)
+        profile['Doctor_ID'] = str(x[0])
+        profile['Doctor_Name'] = x[1]
+        profile['Speciality'] = x[2]
+        profile['Phone_No'] = x[3]
+        profile['Gender'] = 'Male' if x[4] == 1 else 'Female'
+        profile['Address'] = x[5]
+    ##Fetching Patients
+    select_stmtP = "SELECT p.Patient_ID, do.Doctor_ID, p.Patient_Name, p.Gender, p.Age, d.Result " \
+                   "FROM Patient as p, Diagnosis as d, Doctor as do, Has " \
+                   "WHERE p.Doctor_ID = do.Doctor_ID AND " \
+                   "Has.Diagnosis_ID = d.Diagnosis_ID AND " \
+                   "Has.Patient_ID = p.Patient_ID AND do.Doctor_Name = %(x)s"
+    mycursor.execute(select_stmtP, {'x': username})
+    patients = []
+    for x in mycursor:
+        patient = {}
+        patient['Patient_ID'] = x[0]
+        patient['Patient_Name'] = x[2]
+        patient['Gender'] = 'Male' if x[3] == 1 else 'Female'
+        patient['Age'] = str(x[4])
+        patient['Result'] = str(x[5])
+        patients.append(patient)
+ # Adding diagnosis
     form_diags = AddDiagnosis()
     fetch_diags = "SELECT Diagnosis_ID, Result FROM Diagnosis"
     mycursor.execute(fetch_diags)
@@ -65,24 +98,76 @@ def doctor():
         mydb.commit()  # commit the changes
         print("Rows affected:", mycursor.rowcount)
         print("Statement:", mycursor.rowcount)
-    return render_template('doctor.html',username=username, form_diags=form_diags)
 
-@app.route("/nurse", methods=['GET', 'POST'])
+    # add medicine
+    formMedicine = GiveMedicine()
+    if formMedicine.validate_on_submit():
+        # fetch patientID
+        patient_id = -1
+        select_pat = 'SELECT Patient_ID FROM Patient WHERE Patient_Name = %(x)s'
+        mycursor.execute(select_pat, {'x': formMedicine.patient.data})
+        flagP = False
+        for x in mycursor:
+            flagP = True
+            patient_id = x[0]
+        if flagP == False:
+            flash('There is something wrong about patient, I can feel it', 'danger')
+        # fetch medicineID
+        medicine_id = -1
+        select_med = 'SELECT Medicine_ID FROM Medicine WHERE MedicineName = %(x)s'
+        mycursor.execute(select_med, {'x': formMedicine.medicine.data})
+        flagM = False
+        for x in mycursor:
+            flagM = True
+            medicine_id = x[0]
+        if flagM == False:
+            flash('There is something wrong about medicine, I can feel it', 'danger')
+        # add medicine
+        if flagP and flagM:
+            insert_medicine = 'insert into Given values (%(x)s,%(y)s)'
+            mycursor.execute(insert_medicine, {'x': medicine_id, 'y': patient_id})
+            mydb.commit()
+
+    # Adding meeting
+    select_stmt_m1 = "SELECT count(*) from Meeting"
+    mycursor.execute(select_stmt_m1)
+    newMeetingID = 0
+    for x in mycursor:
+        newMeetingID = x[0] + 1
+    formD = D_MeetingForm()
+    if formD.validate_on_submit():
+        select_stmt_m3 = "SELECT count(Record_No) from Meeting WHERE Patient_ID = %(x)s"
+        mycursor.execute(select_stmt_m3, {'x': formD.addPatient.data})
+        newRecordNo = 0
+        for x in mycursor:
+            newRecordNo = x[0] + 1
+        insert_stmt = "INSERT INTO Meeting(Meeting_ID, Patient_ID, Record_No, DescriptionColumn, Appointment) VALUES(%(x)s, %(y)s, %(z)s, %(a)s, %(b)s)"
+        mycursor.execute(insert_stmt,
+                            {'x': newMeetingID, 'y': formD.addPatient.data, 'z': newRecordNo, 'a': formD.description.data, 'b': formD.appointment.data})
+        mydb.commit()  # commit the changes
+        print("Rows affected:", mycursor.rowcount)
+        print("Statement:", mycursor.rowcount)
+    return render_template('doctor.html', profile=profile, username=username, formD=formD,form_diags=form_diags, patients=patients, formMedicine=formMedicine)
+
+
+
+
+@app.route("/nurse",  methods=['GET', 'POST'])
 def nurse():
-    username = request.args.get('username', default = "*", type = str)
+    username = request.args.get('username', default="*", type=str)
     ##get nurseID
     select_nurse = 'SELECT Nurse_ID FROM Nurse WHERE Nurse_Name = %(x)s'
-    mycursor.execute(select_nurse, { 'x': username})
+    mycursor.execute(select_nurse, {'x': username})
     nurse_id = 0
     for x in mycursor:
-            nurse_id = x[0]
+        nurse_id = x[0]
     ##updating rooms
     form = RoomForm()
     if form.validate_on_submit():
         ## Check if patient exist
         patient_id = -1
         select_stmt3 = 'SELECT Patient_ID FROM Patient WHERE Patient_Name = %(x)s'
-        mycursor.execute(select_stmt3, { 'x': form.patient.data})
+        mycursor.execute(select_stmt3, {'x': form.patient.data})
         flagP = False
         for x in mycursor:
             flagP = True
@@ -92,11 +177,11 @@ def nurse():
             flagP = True
         if flagP == False:
             flash('There is something wrong about patient, I can feel it', 'danger')
-        
+
         ## Check if nurse exist
         nurse_id = -1
         select_nurse = 'SELECT Nurse_ID FROM Nurse WHERE Nurse_Name = %(x)s'
-        mycursor.execute(select_nurse, { 'x': form.nurse.data})
+        mycursor.execute(select_nurse, {'x': form.nurse.data})
         flagN = False
         for x in mycursor:
             nurse_id = x[0]
@@ -109,24 +194,24 @@ def nurse():
         ##update
         if flagN and flagP:
             select_stmt4 = 'UPDATE Room SET Patient_ID=%(x)s, Nurse_ID=%(y)s WHERE Room_ID=%(z)s'
-            #mycursor.execute('UPDATE Room SET Patient_ID=44, Nurse_ID=152 WHERE Room_ID=3')
-            mycursor.execute(select_stmt4, {'x': patient_id,'y':nurse_id,'z':form.roomID.data})
-            #mycursor.fetchall()
+            # mycursor.execute('UPDATE Room SET Patient_ID=44, Nurse_ID=152 WHERE Room_ID=3')
+            mycursor.execute(select_stmt4, {'x': patient_id, 'y': nurse_id, 'z': form.roomID.data})
+            # mycursor.fetchall()
             mydb.commit()  # commit the changes
             print("Rows affected:", mycursor.rowcount)
             print("Statement:", mycursor.rowcount)
-        #mycursor.fetchall()
+        # mycursor.fetchall()
 
     ##Fetching the profile
     select_stmt1 = "SELECT * FROM Nurse WHERE Nurse_Name = %(x)s"
-    mycursor.execute(select_stmt1, { 'x': username})
+    mycursor.execute(select_stmt1, {'x': username})
     profile = {}
     for x in mycursor:
-        #print(x)
+        # print(x)
         profile['Nurse_ID'] = str(x[0])
         profile['Nurse_Name'] = x[1]
         profile['Phone_No'] = x[2]
-        profile['Gender'] = 'Male' if x[3]==1 else 'Female'
+        profile['Gender'] = 'Male' if x[3] == 1 else 'Female'
         profile['Address'] = x[4]
     ##Fetching the patients
     select_stmtP = "SELECT Patient_Name,Gender,Age FROM Patient"
@@ -135,17 +220,17 @@ def nurse():
     for x in mycursor:
         patient = {}
         patient['Patient_Name'] = x[0]
-        patient['Gender'] = 'Male' if x[1]==1 else 'Female'
+        patient['Gender'] = 'Male' if x[1] == 1 else 'Female'
         patient['Age'] = str(x[2])
         patients.append(patient)
     ##Fetching rooms
     rooms = []
     select_stmt2 = """SELECT Room_ID,Nurse_Name,Patient_Name,RoomType,Result
-                     FROM Room, Nurse, Patient, Has, Diagnosis
-                     WHERE Patient.Patient_ID = Room.Patient_ID and
-                           Room.Nurse_ID = Nurse.Nurse_ID and
-                           Has.Patient_ID = Patient.Patient_ID and
-                           Has.Diagnosis_ID = Diagnosis.Diagnosis_ID"""
+                         FROM Room, Nurse, Patient, Has, Diagnosis
+                         WHERE Patient.Patient_ID = Room.Patient_ID and
+                               Room.Nurse_ID = Nurse.Nurse_ID and
+                               Has.Patient_ID = Patient.Patient_ID and
+                               Has.Diagnosis_ID = Diagnosis.Diagnosis_ID"""
     mycursor.execute(select_stmt2)
     for x in mycursor:
         room = {}
@@ -156,12 +241,12 @@ def nurse():
         room['Result'] = x[4]
         rooms.append(room)
     print(len(rooms))
-    return render_template('nurse.html',profile=profile,rooms=rooms,username=username,form=form,patients=patients)
+    return render_template('nurse.html', profile=profile, rooms=rooms, username=username, form=form, patients=patients)
 
-@app.route("/patient", methods=['GET', 'POST'])
+@app.route("/patient",  methods=['GET', 'POST'])
 def patient():
     username = request.args.get('username', default="*", type=str)
-    #Patient's profile
+    # Patient's profile
     select_stmt_p1 = "SELECT Patient_ID, Patient_Name, Phone_No, Gender, Address, Age FROM Patient WHERE Patient_Name = %(x)s"
     mycursor.execute(select_stmt_p1, {'x': username})
     profile = {}
@@ -189,12 +274,12 @@ def patient():
     if form.validate_on_submit():
         insert_stmt = "INSERT INTO Meeting(Meeting_ID, Patient_ID, Record_No, DescriptionColumn, Appointment) VALUES(%(x)s, %(y)s, %(z)s, %(a)s, %(b)s)"
         mycursor.execute(insert_stmt,
-                            {'x': newMeetingID, 'y': PatientId, 'z': newRecordNo, 'a': form.description.data,
-                              'b': form.appointment.data})
+                         {'x': newMeetingID, 'y': PatientId, 'z': newRecordNo, 'a': form.description.data,
+                          'b': form.appointment.data})
         mydb.commit()  # commit the changes
         print("Rows affected:", mycursor.rowcount)
         print("Statement:", mycursor.rowcount)
-    #Updating and deleting the meeting
+    # Updating and deleting the meeting
     form2 = MeetingUpdateForm()
     if form2.validate_on_submit():
         update_stmt = "UPDATE Meeting SET Appointment = %(x)s WHERE Patient_ID = %(y)s AND Record_No = %(z)s"
@@ -265,7 +350,8 @@ def patient():
         diagnosis['Diagnosis_ID'] = str(x[0])
         diagnosis['Result'] = x[1]
         diagnoses.append(diagnosis)
-    #Patient's room(if there is)
+
+        # Patient's room(if there is)
     select_stmt_p7 = "SELECT Room_ID, RoomType, Nurse_Name, Phone_No FROM room, nurse where nurse.Nurse_ID = room.Nurse_ID and Patient_ID = %(x)s;"
     mycursor.execute(select_stmt_p7, {'x': PatientId})
     roominfo = []
@@ -278,8 +364,9 @@ def patient():
         room['Phone_No'] = x[3]
         roominfo.append(room)
 
-    return render_template('patient.html', username=username, profile=profile, doctorprofile=doctorprofile, meetings=meetings, medicines=medicines, records=records, diagnoses=diagnoses, form=form, form2=form2, form3=form3, roominfo=roominfo)
-
+    return render_template('patient.html', username=username, profile=profile, doctorprofile=doctorprofile,
+                           meetings=meetings, medicines=medicines, records=records, roominfo= roominfo, diagnoses=diagnoses, form=form,
+                           form2=form2, form3=form3)
 
 
 if __name__ == '__main__':
