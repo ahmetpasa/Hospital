@@ -2,6 +2,82 @@
 
 {% block content%}
     <div class="content-section">
+    <ul class="list-group">
+        <li class="list-group-item active">Profile</li>
+        <li class="list-group-item">DoctorID : {{profile.Doctor_ID}}</li>
+        <li class="list-group-item">Name : {{profile.Doctor_Name}}</li>
+        <li class="list-group-item">Speciality : {{profile.Speciality}}</li>
+        <li class="list-group-item">Phone No : {{profile.Phone_No}}</li>
+        <li class="list-group-item">Gender : {{profile.Gender}}</li>
+        <li class="list-group-item">Address : {{profile.Address}}</li>
+    </ul>
+    </div>
+<div class="content-section">
+    <table class="table">
+        <caption>Patients</caption>
+        <thead class="thead-dark">
+            <th scope="col">Patient ID</th>
+            <th scope="col">Patient Name</th>
+            <th scope="col">Gender</th>
+            <th scope="col">Age</th>
+            <th scope="col">Result</th>
+        </thead>
+        <tbody>
+            {% for patient in patients %}
+                    <tr>
+                        <th scope="row">{{patient.Patient_ID}}</th>
+                         <td>{{patient.Patient_Name}}</td>
+                        <td>{{patient.Gender}}</td>
+                        <td>{{patient.Age}}</td>
+                         <td>{{patient.Result}}</td>
+                    </tr>
+            {%endfor%}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="content-section">
+        <form method="POST" action="">
+            {{ formMedicine.hidden_tag() }}
+            <fieldset class="form-group">
+                <legend class="border-bottom mb-4">Give Medicine</legend>
+                <div class="form-group">
+                    {{ formMedicine.patient.label(class="form-control-label") }}
+
+                    {% if formMedicine.patient.errors %}
+                        {{ formMedicine.patient(class="form-control form-control-lg is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in formMedicine.patient.errors %}
+                                <span>{{ error }}</span>
+                            {%endfor%}
+                        </div>
+                    {%else%}
+                        {{ formMedicine.patient(class="form-control form-control-lg") }}
+                    {%endif%}
+                </div>
+                <div class="form-group">
+                    {{ formMedicine.medicine.label(class="form-control-label") }}
+
+                    {% if formMedicine.medicine.errors %}
+                        {{ formMedicine.medicine(class="form-control form-control-lg is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in formMedicine.medicine.errors %}
+                                <span>{{ error }}</span>
+                            {%endfor%}
+                        </div>
+                    {%else%}
+                        {{ formMedicine.medicine(class="form-control form-control-lg") }}
+                    {%endif%}
+                </div>
+                <div class="form-group">
+                    {{ formMedicine.give(class="btn btn-outline-info") }}
+                </div>
+            </fieldset>
+        </form>
+    </div>
+
+
+<div class="content-section">
     <form method="POST" action="">
         {{ form_diags.hidden_tag() }}
         <fieldset class="form-group">
@@ -36,6 +112,65 @@
         </div>
         <div class="form-group">
             {{ form_diags.upd_2(class="btn btn-outline-info") }}
+        </div>
+        </fieldset>
+    </form>
+    </div>
+
+
+    <div class="content-section">
+        <form method="POST" action="">
+            {{ formD.hidden_tag() }}
+            <fieldset class="form-group">
+            <legend class="border-bottom mb-4">New Meeting</legend>
+
+            <div class="form-group">
+            {{ formD.addPatient.label(class="form-control-label") }}
+
+            {% if formD.addPatient.errors %}
+                {{ formD.addPatient(class="form-control form-control-lg is-invalid") }}
+                <div class="invalid-feedback">
+                    {% for error in formD.addPatient.errors %}
+                        <span>{{ error }}</span>
+                    {%endfor%}
+                </div>
+            {%else%}
+                {{ formD.addPatient(class="form-control form-control-lg") }}
+            {%endif%}
+        </div>
+
+        <div class="form-group">
+            {{ formD.appointment.label(class="form-control-label") }}
+
+            {% if formD.appointment.errors %}
+                {{ formD.appointment(class="form-control form-control-lg is-invalid") }}
+                <div class="invalid-feedback">
+                    {% for error in formD.appointment.errors %}
+                        <span>{{ error }}</span>
+                    {%endfor%}
+                </div>
+            {%else%}
+                {{ formD.appointment(class="form-control form-control-lg") }}
+            {%endif%}
+        </div>
+
+        <div class="form-group">
+            {{ formD.description.label(class="form-control-label") }}
+
+            {% if formD.description.errors %}
+                {{ formD.description(class="form-control form-control-lg is-invalid") }}
+                <div class="invalid-feedback">
+                    {% for error in formD.description.errors %}
+                        <span>{{ error }}</span>
+                    {%endfor%}
+                </div>
+            {%else%}
+                {{ formD.description(class="form-control form-control-lg") }}
+            {%endif%}
+        </div>
+
+        <div class="form-group">
+            {{ formD.add(class="btn btn-outline-info") }}
         </div>
         </fieldset>
     </form>
